@@ -11,9 +11,7 @@ import com.newrelic.telemetry.Attributes;
 import com.newrelic.telemetry.spans.Span;
 import com.newrelic.telemetry.spans.Span.SpanBuilder;
 import com.newrelic.telemetry.spans.SpanBatch;
-import io.opentelemetry.sdk.resources.Resource;
-import io.opentelemetry.sdk.trace.InstrumentationLibraryInfo;
-import io.opentelemetry.sdk.trace.SpanData;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.trace.AttributeValue;
 import io.opentelemetry.trace.SpanId;
 import io.opentelemetry.trace.Status;
@@ -67,45 +65,13 @@ class SpanBatchAdapter {
     Attributes attributes = new Attributes();
     attributes = createIntrinsicAttributes(span, attributes);
     attributes = addPossibleErrorAttribute(span, attributes);
-    attributes = addPossibleInstrumentationAttributes(span, attributes);
-    return addResourceAttributes(span, attributes);
-  }
-
-  private static Attributes addPossibleInstrumentationAttributes(
-      SpanData span, Attributes attributes) {
-    InstrumentationLibraryInfo instrumentationLibraryInfo = span.getInstrumentationLibraryInfo();
-    if (instrumentationLibraryInfo != null) {
-      if (instrumentationLibraryInfo.name() != null
-          && !instrumentationLibraryInfo.name().isEmpty()) {
-        attributes.put("instrumentation.name", instrumentationLibraryInfo.name());
-      }
-      if (instrumentationLibraryInfo.version() != null
-          && !instrumentationLibraryInfo.version().isEmpty()) {
-        attributes.put("instrumentation.version", instrumentationLibraryInfo.version());
-      }
-    }
-    return attributes;
+    attributes = CommonUtils.populateLibraryInfo(attributes, span.getInstrumentationLibraryInfo());
+    return CommonUtils.addResourceAttributes(attributes, span.getResource());
   }
 
   private static Attributes createIntrinsicAttributes(SpanData span, Attributes attributes) {
     Map<String, AttributeValue> originalAttributes = span.getAttributes();
-    originalAttributes.forEach(
-        (key, value) -> {
-          switch (value.getType()) {
-            case STRING:
-              attributes.put(key, value.getStringValue());
-              break;
-            case LONG:
-              attributes.put(key, value.getLongValue());
-              break;
-            case BOOLEAN:
-              attributes.put(key, value.getBooleanValue());
-              break;
-            case DOUBLE:
-              attributes.put(key, value.getDoubleValue());
-              break;
-          }
-        });
+    CommonUtils.putInAttributes(attributes, originalAttributes);
     return attributes;
   }
 
@@ -113,15 +79,6 @@ class SpanBatchAdapter {
     Status status = span.getStatus();
     if (!status.isOk() && status.getDescription() != null && !status.getDescription().isEmpty()) {
       attributes.put("error.message", status.getDescription());
-    }
-    return attributes;
-  }
-
-  private static Attributes addResourceAttributes(SpanData span, Attributes attributes) {
-    Resource resource = span.getResource();
-    if (resource != null) {
-      Map<String, String> labelsMap = resource.getLabels();
-      labelsMap.forEach(attributes::put);
     }
     return attributes;
   }
