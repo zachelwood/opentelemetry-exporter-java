@@ -39,7 +39,7 @@ googleJavaFormat {
 }
 
 dependencies {
-    api("com.newrelic.telemetry:telemetry:0.3.5-SNAPSHOT")
+    api("com.newrelic.telemetry:telemetry:0.4.0")
     implementation("io.opentelemetry:opentelemetry-sdk:0.3.0-SNAPSHOT")
     implementation("com.newrelic.telemetry:telemetry-http-okhttp:0.3.1")
 
