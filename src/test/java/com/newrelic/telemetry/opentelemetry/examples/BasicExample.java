@@ -4,7 +4,7 @@ import com.newrelic.telemetry.Attributes;
 import com.newrelic.telemetry.opentelemetry.export.NewRelicSpanExporter;
 import io.opentelemetry.OpenTelemetry;
 import io.opentelemetry.context.Scope;
-import io.opentelemetry.sdk.trace.TracerSdkProvider;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.export.BatchSpansProcessor;
 import io.opentelemetry.trace.Span;
 import io.opentelemetry.trace.Span.Kind;
@@ -22,17 +22,17 @@ public class BasicExample {
         NewRelicSpanExporter.newBuilder()
             .apiKey(System.getenv("INSIGHTS_INSERT_KEY"))
             .commonAttributes(new Attributes().put("service.name", "best service ever"))
+            .enableAuditLogging()
             .build();
 
     // 2. Build the OpenTelemetry `BatchSpansProcessor` with the `NewRelicSpanExporter`
     BatchSpansProcessor spanProcessor = BatchSpansProcessor.newBuilder(exporter).build();
 
-    // 3. Add the span processor to a TracerSdkFactory
-    TracerSdkProvider tracerSdkFactory = TracerSdkProvider.builder().build();
-    tracerSdkFactory.addSpanProcessor(spansProcessor);
+    // 3. Add the span processor to the default Tracer Provider
+    OpenTelemetrySdk.getTracerProvider().addSpanProcessor(spanProcessor);
 
     // 4. Create a OpenTelemetry `Tracer` and use it for recording spans.
-    Tracer tracer = OpenTelemetry.getTracerFactory().get("sample-app", "1.0");
+    Tracer tracer = OpenTelemetry.getTracerProvider().get("sample-app", "1.0");
 
     Span span = tracer.spanBuilder("testSpan").setSpanKind(Kind.INTERNAL).startSpan();
     try (Scope scope = tracer.withSpan(span)) {
@@ -44,8 +44,6 @@ public class BasicExample {
     // clean up so the JVM can exit. Note: the spanProcessor will flush any spans to the exporter
     // before it exits.
     spanProcessor.shutdown();
-    // note: it shouldn't be necessary to explicitly shut down the exporter.
-    // See https://github.com/open-telemetry/opentelemetry-java/issues/965
-    exporter.shutdown();
+    Thread.sleep(10000);
   }
 }
